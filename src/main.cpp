@@ -23,7 +23,13 @@ const char *prevAttendanceType = "";
 // String wifi = "CASA2 2.4G"; String password = "isaias25++";
 // String wifi = "CLARO_B253"; String password = "5wEs6DQpcp";
 String wifi = "Pixel_7";
-String password = "hehehe123";
+String password = "12244668";
+
+// Variables for status reporting
+const char* deviceId = "001"; // ID único del dispositivo
+int scanCount = 0; // Contador de escaneos
+bool deviceWorking = true; // Estado del dispositivo
+
 
 void scanTask(void *pvParameters)
 {
@@ -38,6 +44,7 @@ void scanTask(void *pvParameters)
       dni = ut->cesarCipherDecode(dni, 3);
       if (dni.length() > 0)
       {
+        scanCount++; // Incrementar contador de escaneos
         //ut->onBuzzer();
         ut->addToQueueIfUnique(dni, manualAttendanceType);
         // apagar led verde
@@ -45,6 +52,54 @@ void scanTask(void *pvParameters)
       }
     }
     vTaskDelay(pdMS_TO_TICKS(100));
+  }
+}
+
+void statusReportTask(void *pvParameters) {
+  Utils *ut = static_cast<Utils *>(pvParameters);
+  
+  while (1) {
+    // Determinar el estado del dispositivo ANTES del envío
+    bool currentStatus = (WiFi.status() == WL_CONNECTED);
+    
+    if (WiFi.status() == WL_CONNECTED) {
+      HTTPClient http;
+      
+      // ✅ CAMBIO PRINCIPAL: Usar IP real en lugar de localhost
+      http.begin("http://10.68.184.181:3000/signal"); // ← Cambia por la IP real de tu PC
+      http.addHeader("Content-Type", "application/json");
+      http.setTimeout(10000); // Aumentar timeout a 10 segundos
+      
+      // Crear JSON con el estado actual
+      DynamicJsonDocument doc(512);
+      doc["id"] = deviceId;
+      doc["cantidad"] = scanCount;
+      doc["conectado"] = currentStatus;
+      
+      String jsonString;
+      serializeJson(doc, jsonString);
+
+      int httpResponseCode = http.POST(jsonString);
+      
+      if (httpResponseCode > 0) {
+        String response = http.getString();
+        Serial.print("✅ Código de respuesta: ");
+        Serial.println(httpResponseCode);
+        Serial.print("Respuesta: ");
+        Serial.println(response);
+        deviceWorking = true;
+      } else {
+        Serial.print("❌ Error en POST: ");
+        Serial.println(httpResponseCode);
+        Serial.println("Error detalle: " + http.errorToString(httpResponseCode));
+      }
+      
+      http.end();
+    } else {
+      Serial.println("📶 WiFi desconectado - No se puede enviar reporte");
+    }
+
+    vTaskDelay(pdMS_TO_TICKS(5000));
   }
 }
 
@@ -83,7 +138,7 @@ void attendanceTypeTask(void *pvParameters) {
                 }
             }
         }
-        vTaskDelay(pdMS_TO_TICKS(5000)); // 30 minutos
+        vTaskDelay(pdMS_TO_TICKS(5000)); // 5 segundos
     }
 }
 
@@ -102,11 +157,15 @@ void setup()
   
   //ut->connecToWifi(wifi.c_str(), password.c_str());
 
+  configTime(-5 * 3600, 0, "pool.ntp.org", "time.nist.gov"); // UTC-5 para Peru
+
   // Crea las tareas en paralelo
   xTaskCreate(wifiReconnectTask, "WifiReconnectTask", 4096, ut, 1, NULL);
   xTaskCreate(scanTask, "ScanTask", 4096, ut, 1, NULL);
   xTaskCreate(Utils::sendDataToServer, "SendTask", 8192, ut, 1, NULL);
   xTaskCreate(attendanceTypeTask, "AttendanceTypeTask", 4096, ut, 1, NULL);
+  xTaskCreate(statusReportTask, "StatusReportTask", 8192, ut, 1, NULL); // Nueva tarea
+
 
   Serial.println("******** INIT SYSTEM ********");
   /*
