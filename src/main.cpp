@@ -45,7 +45,7 @@ void setup() {
     if (xTaskCreate(statusReportTask, "StatusReportTask", 8192, ut, 1, NULL) != pdPASS) {
         Serial.println("RROR: No se pudo crear Status Report Task");
     }
-
+    
     if (xTaskCreate(Utils::sendDataToServer, "SendDataToServer", 8192, ut, 1, NULL) != pdPASS) {
         Serial.println("ERROR: No se pudo crear Send Data To Server Task");
     }

@@ -23,13 +23,14 @@
  * @brief Configuración de red WiFi
  * @details Credenciales para conexión a red inalámbrica
  */
-const String WIFI_SSID = "Pixel_7";           // Nombre de la red WiFi
-const String WIFI_PASSWORD = "12244668";      // Contraseña de la red WiFi
+extern const String WIFI_SSID;           // Nombre de la red WiFi
+extern const String WIFI_PASSWORD;       // Contraseña de la red WiFi
 
 /**
  * @brief Identificación del dispositivo scanner
  */
-const char* DEVICE_ID = "001";                 // ID único del dispositivo
+// extern device id
+extern const char* DEVICE_ID;               // ID único del dispositivo
 
 /**
  * @brief Variables de estado del sistema de asistencia
